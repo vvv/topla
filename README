@@ -1,0 +1,75 @@
+topla -- creation of playlists for Motorola SLVR L7e phone
+
+  Making of playlists with MOTOSLVR L7e [1] playlist editor is quite
+  tedious. The results are binary .pla files stored in the file system
+  of phone's memory card.
+
+  `topla.py' creates binary playlists from the addresses of long file
+  names (LFN) in FAT16 file system.
+
+Playlist Format
+
+       0    1    2    3    4    5    6    7
+    +----+----+----+----+----+----+----+----+
+    |  0 |  N |  0 |  1 |  0 |  0 |  0 |  0 |  <-- header
+    +----+----+----+----+----+----+----+----+
+    |  1 |0x40|sOff|         Segment        |  <-- entry #1
+    +----+----+----+----+----+----+----+----+
+    |  1 |0x40|sOff|         Segment        |  <-- entry #2
+    +----+----+----+----+----+----+----+----+
+    ...                                             ...
+    +----+----+----+----+----+----+----+----+
+    |  1 |0x40|sOff|         Segment        |  <-- entry #N
+    +----+----+----+----+----+----+----+----+
+
+  Header: 8 bytes
+
+    Encodes the number of entries.
+
+    N (1 byte) -- the number of audio files (entries).
+
+  Entry: 8 bytes
+
+    Encodes location of the earliest LFN [2] directory entry (dentry)
+    that corresponds to a given audio file.
+
+    Segment (4 bytes) -- zero-based number of segment;
+    sOff (1 byte) -- offset from the beginning of segment.
+
+Usage
+
+  `topla.py' reads hex addresses of FAT16 LFN dentries from stdin and
+  writes playlist data to stdout. `fat16dir' program [3] can be used
+  to obtain the input addresses. (Another method is looking for
+  necessary dentries in the file system's hex dump, but it is hardly
+  better then using phone's playlist editor.)
+
+Examples
+
+    $ fat16dir.py /dev/sdb1 mobile/audio | grep mp3\$
+    ----a +0004c100 shkatulka.mp3
+    ----a +0004bfc0 the-it-crowd.mp3
+    ----a +0004c0a0 the_passenger.mp3
+    $ echo -e '0004c100\n0004bfc0\n0004c0a0' | topla.py | hexdump -C
+    00000000  00 03 00 01 00 00 00 00  01 40 00 08 00 00 02 60  |.........@.....`|
+    00000010  01 40 00 0e 00 00 02 5f  01 40 00 05 00 00 02 60  |.@....._.@.....`|
+    00000020
+
+    $ mount /mnt/winstick
+    $ fat16dir/fat16dir.py /dev/sdb1 d/David\ Bowie.1977.Low | \
+      cut -d' ' -f2 | topla/topla.py >/mnt/winstick/d/David\ Bowie_Low.pla
+    $ umount /mnt/winstick
+
+Credits
+
+  Valery V. Vorotyntsev <valery.vv@gmail.com> -- hacked .pla format,
+  wrote `topla.py'
+
+  Alexander Gattin <alexander.gattin@gmail.com> -- wrote original
+  version of `fat16dir.py'
+
+References
+
+ [1] http://www.motorola.com/motoinfo/product/details.jsp?globalObjectId=172
+ [2] http://en.wikipedia.org/wiki/File_Allocation_Table#Long_file_names_2
+ [3] http://github.com/vvv/fat16dir
